@@ -1,11 +1,10 @@
 import asyncio
 import random
-import pandas as pd
 from playwright.async_api import async_playwright
 from playwright_stealth import stealth_async
 
 # --- CONFIGURATION ---
-EXCEL_PATH = "comptes.xlsx"
+TXT_PATH = "emails.txt"  # Ton fichier texte
 PASSWORD_FIXE = "MonSuperMdp2026!"
 URL_INSCRIPTION = "https://www.instant-gaming.com/fr/creer-un-compte/"
 
@@ -20,12 +19,12 @@ async def human_type(page, selector, text):
         await page.type(selector, char, delay=random.randint(50, 150))
 
 async def run_bot(email):
-    # Invention du nom et prénom pour ce compte précis
+    # Invention du nom et prénom
     prenom_invente = random.choice(LISTE_PRENOMS)
     nom_invente = random.choice(LISTE_NOMS)
     
     async with async_playwright() as p:
-        # headless=False si tu veux voir le navigateur s'ouvrir
+        # headless=True pour ne pas voir la fenêtre, False pour débugger
         browser = await p.chromium.launch(headless=True) 
         context = await browser.new_context(
             viewport={'width': 1920, 'height': 1080},
@@ -44,54 +43,59 @@ async def run_bot(email):
             # 2. Mot de passe
             await human_type(page, "#ig-pass", PASSWORD_FIXE)
 
-            # 3. Prénom et Nom inventés
+            # 3. Prénom et Nom
             await human_type(page, "#ig-firstname", prenom_invente)
             await human_type(page, "#ig-lastname", nom_invente)
             
-            # 4. Date de naissance aléatoire (entre 18 et 35 ans)
+            # 4. Date de naissance
             annee = random.randint(1990, 2005)
-            jour = str(random.randint(10, 28))
-            mois = f"0{random.randint(1, 9)}"
-            await human_type(page, "#ig-birthdate", f"{jour}/{mois}/{annee}")
+            date_str = f"{random.randint(10, 28)}/0{random.randint(1, 9)}/{annee}"
+            await human_type(page, "#ig-birthdate", date_str)
 
-            # 5. CGU
+            # 5. Cocher les CGU
             await page.click("label[for='ig-register-terms-input']")
-            await asyncio.sleep(random.uniform(1, 3))
+            await asyncio.sleep(random.uniform(1, 2))
 
             # 6. Validation
-            print("Envoi du formulaire...")
+            print("Clic sur Envoyer...")
             await page.click("#ajax-register-btn")
 
-            # Attendre de voir si l'URL change ou si un message d'erreur apparaît
-            await asyncio.sleep(8)
+            # Attente de confirmation (URL ou message)
+            await asyncio.sleep(10)
             
             if "check-mail" in page.url:
-                print(f"✅ Succès pour {email}")
+                print(f"✅ Compte créé avec succès pour {email}")
             else:
-                print(f"⚠️ Terminé pour {email}. Vérifie si le compte est créé.")
+                print(f"⚠️ Formulaire soumis. Vérifie manuellement pour {email}")
 
         except Exception as e:
-            print(f"❌ Erreur pour {email} : {e}")
+            print(f"❌ Erreur sur {email} : {e}")
         finally:
             await browser.close()
 
 async def main():
+    # Lecture du fichier TXT
     try:
-        # On ne récupère que la colonne 'email'
-        df = pd.read_excel(EXCEL_PATH)
-        emails = df['email'].dropna().tolist() # .dropna() enlève les lignes vides
-        print(f"Démarrage : {len(emails)} emails chargés.")
-    except Exception as e:
-        print(f"Erreur Excel : {e}")
+        with open(TXT_PATH, "r", encoding="utf-8") as f:
+            # On récupère chaque ligne, on enlève les espaces et on ignore les lignes vides
+            emails = [line.strip() for line in f.readlines() if line.strip()]
+        
+        if not emails:
+            print("Le fichier emails.txt est vide.")
+            return
+            
+        print(f"Démarrage : {len(emails)} emails trouvés dans le fichier.")
+    except FileNotFoundError:
+        print(f"Erreur : Le fichier {TXT_PATH} n'existe pas.")
         return
 
     for i, email in enumerate(emails):
         await run_bot(email)
 
+        # Pause de 10 minutes (600s) entre chaque compte
         if i < len(emails) - 1:
-            # Pause de 10 minutes (600s) + un peu de hasard
-            attente = 600 + random.randint(-20, 40)
-            print(f"Prochain compte dans {attente // 60} min {attente % 60} sec...")
+            attente = 600 + random.randint(-15, 30)
+            print(f"Attente de {attente // 60} min avant le prochain mail...")
             await asyncio.sleep(attente)
 
 if __name__ == "__main__":
