@@ -1,4 +1,4 @@
-Markdown
+Markdown progress 
 # 🤖 IG Account Auto-Creator (Headless)
 
 Ce script Python automatisé utilise **Playwright** pour créer des comptes sur Instant Gaming de manière invisible. Il simule un comportement humain pour maximiser les chances de succès tout en restant discret.
